@@ -1,6 +1,6 @@
 class Article {
-    // Automatic implementation of "id", "creatorId", "image" & "dates" by the server 
-    constructor(message,genre,pseudo,dates){
+    // Automatic implementation of "id", "creatorId", "image", "valide" & "dateofcreate" by the server 
+    constructor(message,genre,pseudo,dates,repost = false,oldPseudo = false){
         this.message = message
         this.genre = genre
         this.dates = dates
@@ -9,6 +9,8 @@ class Article {
         this.voteAgainst = 0
         this.userFor = JSON.stringify([])
         this.userAgainst = JSON.stringify([])
+        this.repost = repost
+        this.oldPseudo = oldPseudo
     }
 }
 module.exports =  Article

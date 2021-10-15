@@ -87,21 +87,86 @@ exports.login = (req, res, next) => {
     })
 
 }
-exports.modify_rank = (req, res, next) => {
-    if(res.locals.userRole === "BOSS"){
-        const connexion = DB_connect()
-        connexion.query(`UPDATE users set rank="${req.body.rank}" WHERE email="${req.body.email}"`, (error, result) => {
-            if (error) {
-                console.error('SQL error: ', error);
-                return next(error);
-            }
-            return res.status(200).json({
-                message: "The user's rank has been modified!"
-            })
+exports.retrieve_users = (req, res, next) => {
+    const connection = DB_connect()
+    connection.query('SELECT * FROM users', (error, users) => {
+        if (error) {
+            console.error('SQL error: ', error);
+            return next(error);
+        }
+        return res.status(200).json({
+            users
         })
-    }else{
-        return res.status(403).json({error:"⛔️❌🔐 !! Invalid xxx administration authentication request! 🔐❌⛔️"})
-    }
+    })
+}
+exports.retrieve_user = (req, res, next) => {
+    const connection = DB_connect()
+    connection.query(`SELECT * FROM users WHERE id="${req.body.id}"`, (error, user) => {
+        if (error) {
+            console.error('SQL error: ', error);
+            return next(error);
+        }
+        if (user.length === 0) {
+            res.status(403).json({
+                error:"❓ This user does not exist! ❓"
+            })
+        }
+        return res.status(200).json({user})
+    })
+}
+exports.modify_pseudo = (req, res, next) => {
+    const connexion = DB_connect() 
+    connexion.query(`SELECT * FROM users WHERE pseudo="${req.body.pseudo}";`, (error, result) => {
+        if (error) {
+            console.error('SQL error: ', error)
+            return res.status(403).json({
+                error:error
+            })
+        }
+        if (result.length != 0) {
+            res.status(403).json({
+                error: '⚠️ Already existing Pseudo! ⚠️'
+            })
+        }else{
+            if(res.locals.currentUserId === req.body.id){
+                connexion.query(`UPDATE users SET pseudo="${req.body.pseudo}" WHERE id="${req.body.id}"`, (error, result) => {
+                    if(error) {
+                        console.error('SQL error: ', error);
+                        return next(error);
+                    }
+                    connexion.query(`UPDATE articles SET oldpseudo="${req.body.pseudo}" WHERE pseudo="${req.body.oldPseudo}"`, (error, result) => {
+                        if(error) {
+                            console.error('SQL error: ', error);
+                            return next(error);
+                        }
+                    })
+                    connexion.query(`UPDATE articles SET pseudo="${req.body.pseudo}" WHERE creatorId="${req.body.id}"`, (error, result) => {
+                        if(error) {
+                            console.error('SQL error: ', error);
+                            return next(error);
+                        }
+                    })
+                    connexion.query(`UPDATE comments SET pseudo="${req.body.pseudo}" WHERE creatorId="${req.body.id}"`, (error, result) => {
+                        if(error) {
+                            console.error('SQL error: ', error);
+                            return next(error);
+                        }
+                    })
+                    connexion.query(`UPDATE answers SET pseudo="${req.body.pseudo}" WHERE creatorId="${req.body.id}"`, (error, result) => {
+                        if(error) {
+                            console.error('SQL error: ', error);
+                            return next(error);
+                        }
+                    })
+                    return res.status(200).json({
+                        message: "The pseudo has been modified!"
+                    })
+                })
+            }else{
+                return res.status(403).json({error:"⛔️❌🔐 !! Invalid administration authentication request! 🔐❌⛔️"})
+            }
+        }
+    })
 }
 exports.modify_email = (req, res, next) => {
     const connexion = DB_connect()
@@ -142,7 +207,12 @@ exports.modify_pass = (req, res, next) => {
         console.log(req.body.oldPassword)
         console.log(result[0].password)
         bcrypt.compare(req.body.oldPassword, result[0].password)
-        .then(() => {
+        .then(valid => {
+            if (!valid) {
+                return res.status(401).json({
+                    error: 'Password incorrect..!'
+                })
+            }
             bcrypt.hash(req.body.newPassword, 10)
             .then(hash => {
                 if(res.locals.currentUserId === req.body.userId){
@@ -169,54 +239,6 @@ exports.modify_pass = (req, res, next) => {
         }))
     })
 }
-exports.modify_pseudo = (req, res, next) => {
-    const connexion = DB_connect() 
-    connexion.query(`SELECT * FROM users WHERE pseudo="${req.body.pseudo}";`, (error, result) => {
-        if (error) {
-            console.error('SQL error: ', error)
-            return res.status(403).json({
-                error:error
-            })
-        }
-        if (result.length != 0) {
-            res.status(403).json({
-                error: '⚠️ Already existing Pseudo! ⚠️'
-            })
-        }else{
-            if(res.locals.currentUserId === req.body.id){
-                connexion.query(`UPDATE users SET pseudo="${req.body.pseudo}" WHERE id="${req.body.id}"`, (error, result) => {
-                    if(error) {
-                        console.error('SQL error: ', error);
-                        return next(error);
-                    }
-                    connexion.query(`UPDATE articles SET pseudo="${req.body.pseudo}" WHERE creatorId="${req.body.id}"`, (error, result) => {
-                        if(error) {
-                            console.error('SQL error: ', error);
-                            return next(error);
-                        }
-                    })
-                    connexion.query(`UPDATE comments SET pseudo="${req.body.pseudo}" WHERE creatorId="${req.body.id}"`, (error, result) => {
-                        if(error) {
-                            console.error('SQL error: ', error);
-                            return next(error);
-                        }
-                    })
-                    connexion.query(`UPDATE answers SET pseudo="${req.body.pseudo}" WHERE creatorId="${req.body.id}"`, (error, result) => {
-                        if(error) {
-                            console.error('SQL error: ', error);
-                            return next(error);
-                        }
-                    })
-                    return res.status(200).json({
-                        message: "The pseudo has been modified!"
-                    })
-                })
-            }else{
-                return res.status(403).json({error:"⛔️❌🔐 !! Invalid administration authentication request! 🔐❌⛔️"})
-            }
-        }
-    })
-}
 exports.delete_user = (req, res, next) => {
     const connexion = DB_connect() 
     connexion.query(`SELECT * FROM users WHERE email="${req.body.email}";`, (error, users) => {
@@ -229,7 +251,7 @@ exports.delete_user = (req, res, next) => {
                 error:"❓ This user does not exist! ❓"
             })
         }
-        if(res.locals.currentUserId === users[0].id){
+        if(res.locals.currentUserId === users[0].id || res.locals.userRole === "BOSS"){
             connexion.query(`SELECT * FROM articles WHERE creatorId="${users[0].id}"`,(error, articles) => {
                 if (error) {
                     console.error('SQL error: ', error);
@@ -247,9 +269,8 @@ exports.delete_user = (req, res, next) => {
                                     console.error('SQL error: ', error);
                                     return next(error);
                                 }
-                                console.log(article.image)
+                            
                                 if(article.image !== ""){
-                                    console.log("ok")
                                     connexion.query(`SELECT image FROM articles WHERE creatorId="${users[0].id}"`, (error, images) => {
                                         if (error) {
                                             console.error('SQL error: ', error)
@@ -258,6 +279,7 @@ exports.delete_user = (req, res, next) => {
                                         images.map(image=> fs.unlink(`images/${image.image.substr(image.image.indexOf('/images/')+8)}`, err => err ? console.log(err) : console.log("Old image is removed")))
                                     })
                                 }
+
                             })
                         })
                     ))
@@ -283,30 +305,19 @@ exports.delete_user = (req, res, next) => {
         }
     })
 }
-exports.retrieve_users = (req, res, next) => {
-    const connection = DB_connect()
-    connection.query('SELECT * FROM users', (error, users) => {
-        if (error) {
-            console.error('SQL error: ', error);
-            return next(error);
-        }
-        return res.status(200).json({
-            users
-        })
-    })
-}
-exports.retrieve_user = (req, res, next) => {
-    const connection = DB_connect()
-    connection.query(`SELECT * FROM users WHERE id="${req.body.id}"`, (error, user) => {
-        if (error) {
-            console.error('SQL error: ', error);
-            return next(error);
-        }
-        if (user.length === 0) {
-            res.status(403).json({
-                error:"❓ This user does not exist! ❓"
+exports.modify_rank = (req, res, next) => {
+    if(res.locals.userRole === "BOSS"){
+        const connexion = DB_connect()
+        connexion.query(`UPDATE users set rank="${req.body.rank}" WHERE email="${req.body.email}"`, (error, result) => {
+            if (error) {
+                console.error('SQL error: ', error);
+                return next(error);
+            }
+            return res.status(200).json({
+                message: "The user's rank has been modified!"
             })
-        }
-        return res.status(200).json({user})
-    })
+        })
+    }else{
+        return res.status(403).json({error:"⛔️❌🔐 !! Invalid xxx administration authentication request! 🔐❌⛔️"})
+    }
 }
